@@ -946,7 +946,10 @@ func (api *API) TraceTransaction(ctx context.Context, hash common.Hash, config *
 	}
 
 	if config != nil {
-		if err := config.StateOverrides.Apply(statedb); err != nil {
+		rules := api.backend.ChainConfig().Rules(vmctx.BlockNumber, vmctx.Random != nil, vmctx.Time)
+
+		precompiles := vm.ActivePrecompiledContracts(rules)
+		if err := config.StateOverrides.Apply(statedb, precompiles); err != nil {
 			return nil, err
 		}
 	}
@@ -1250,7 +1253,10 @@ func (api *API) traceBundle(ctx context.Context, bundle *Bundle, simulateContext
 
 	// Apply the customization rules if required.
 	if config != nil {
-		if err := config.StateOverrides.Apply(statedb); err != nil {
+		rules := api.backend.ChainConfig().Rules(vmctx.BlockNumber, vmctx.Random != nil, vmctx.Time)
+
+		precompiles := vm.ActivePrecompiledContracts(rules)
+		if err := config.StateOverrides.Apply(statedb, precompiles); err != nil {
 			return nil, err
 		}
 		config.BlockOverrides.Apply(&vmctx)
@@ -1260,8 +1266,8 @@ func (api *API) traceBundle(ctx context.Context, bundle *Bundle, simulateContext
 		if err := args.CallDefaults(api.backend.RPCGasCap(), vmctx.BaseFee, api.backend.ChainConfig().ChainID); err != nil {
 			return nil, err
 		}
-		msg := args.ToMessage(block.BaseFee())
-		tx := args.ToTransaction()
+		msg := args.ToMessage(block.BaseFee(), true, true)
+		tx := args.ToTransaction(types.LegacyTxType)
 
 		var traceConfig *TraceConfig
 		if config != nil {
